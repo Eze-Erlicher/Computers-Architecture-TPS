@@ -10,7 +10,7 @@ module adder #(
 reg [NB_DATA-1:0] adder_out;
 
 always @(*) begin
-    adder_out = i_data_A + i_data_B;  
+    adder_out = i_data_A + i_data_B;
 end
 
 assign o_result = adder_out;
