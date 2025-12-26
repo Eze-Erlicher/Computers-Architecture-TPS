@@ -11,7 +11,7 @@ module PC #(
 
 reg [NB_DATA-1:0] out_PC;
 
-always @(posedge i_clk, posedge i_reset) begin
+always @(posedge i_clk) begin
 
     if(i_reset) begin
         out_PC = 0;
