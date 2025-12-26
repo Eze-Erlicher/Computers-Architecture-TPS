@@ -11,32 +11,31 @@ module instruction_memory #(
 (
     input  wire                i_clk,
     input  wire                i_reset,
+    input  wire                i_read_enable,
     input  wire                i_write_enable,
     input  wire [PC_WIDTH-1:0] i_address,
     input  wire [NB_WIDTH-1:0] write_register,
     output wire [NB_WIDTH-1:0] o_instruction
 );
 
-reg [NB_WIDTH-1:0] ram_mem [DEPTH-1:0];
 reg [NB_WIDTH-1:0] out_instruction;
+reg [NB_WIDTH-1:0] ram_mem [DEPTH-1:0];
 
 
 always @(posedge i_clk) begin
 
-    if(~i_write_enable) begin
-        out_instruction <= ram_mem[i_address];
+    if(i_reset) begin
+        ram_mem[i_address] <= {NB_WIDTH {1'b0}};
     end
 
     else begin
-
-        if(i_reset) begin
-            ram_mem[i_address] <= {NB_WIDTH {1'b0}};
+        if(i_read_enable) begin
+            out_instruction <= ram_mem[i_address];
         end
 
-        else begin
-            ram_mem[i_address] <= write_register;
+        if(i_write_enable) begin
+            ram_mem[i_address] <= write_register;   
         end
-
     end
 end
 
