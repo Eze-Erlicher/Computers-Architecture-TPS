@@ -69,10 +69,11 @@ reg [INSTRUCT_MEM_WIDTH-1:0] pipeline_info;
 reg tx_start;
 reg [1:0]start_pipeline_flag;
 
-always @(posedge i_clk)begin
+always @(posedge i_clk,posedge i_reset)begin
     if (i_reset) begin
         state <= WAIT_FOR_COMMAND;
         inst_counter <= 0;
+        instruct_to_write <= {INSTRUCT_MEM_WIDTH{1'b0}};
         register_address <= 0;
         memory_address <= 0;
         latches_sent_counter <= 0;
@@ -116,25 +117,23 @@ always @(posedge i_clk)begin
                 end
                 
                 else begin
-                    state <= RUN_STEPWISE;
+                    state <= WAIT_FOR_COMMAND;
                 end
             end
             
             RECEIVE_INSTRUCTS: begin
-            
-                if(i_instruct_or_command == instructs_eof && (i_receive_done))begin
+                if(i_receive_done)begin
                     instructions[inst_counter] <= i_instruct_or_command;
-                    inst_counter <= {INSTRUCT_MEM_ADDR_BITS{1'b0}};
-                    state <= PROGRAM_INSTRUCT_MEM;
-                end
-                
-                else begin
-                    if(i_receive_done)begin
-                        instructions[inst_counter] <= i_instruct_or_command;
+                    
+                    if(i_instruct_or_command == instructs_eof )begin
+                        inst_counter <= {INSTRUCT_MEM_ADDR_BITS{1'b0}};
+                        state <= PROGRAM_INSTRUCT_MEM;
+                    end
+                    
+                    else begin
                         inst_counter <= inst_counter+1;
                     end
                 end  
-                   
             end
             
             PROGRAM_INSTRUCT_MEM: begin
@@ -179,7 +178,6 @@ always @(posedge i_clk)begin
                         memory_address <= memory_address+1;
                     end
                 end
-                
             end
             
             SEND_LATCHES:begin
@@ -254,7 +252,7 @@ assign o_start_pipeline = start_pipeline_flag;
 endmodule
 
 /*
-i've coded a verilog module serves as interface between two UART buffers 
+i've coded a verilog module which serves as an interface between two UART buffers 
 (one for the receptor and another for the trasnsmitter) and a processor pipeline. 
 First,i'm gonna provide the code for the interface, then the code for the 2 buffers. 
 Tell me if there any logic errors for every individual module and if the interaction between 
