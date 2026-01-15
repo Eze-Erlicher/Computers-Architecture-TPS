@@ -1,50 +1,59 @@
 module rx_buffer #(
+
 parameter INSTRUCT_MEM_WIDTH = 32
 )
+
 (
 //Inputs
 input wire i_clk,
 input wire i_reset,
-input wire i_tx_done,
-input wire i_tx_data,
+input wire i_rx_buffer_start,
+input wire i_rx_done,
+input wire [INSTRUCT_MEM_WIDTH-1:0]i_pipeline_info,
 
 //Outputs
-output [INSTRUCT_MEM_WIDTH-1:0]o_instruct_or_command,
-output o_receive_done
+output wire o_rx_buffer_empty,
+output wire o_rx_data
 );
 
-reg [5:0]received_bits_counter;
-reg [INSTRUCT_MEM_WIDTH-1:0] instruct_or_command;
-reg receive_done;
+reg [INSTRUCT_MEM_WIDTH-1:0]rx_buffer_data;
+reg bit_to_send;
+reg rx_buffer_empty;
+reg [5:0]sent_bits_counter;
 
-always @(posedge i_clk, posedge i_reset)begin
-    
-    if(i_reset)begin
-        received_bits_counter <= 0;
-        instruct_or_command <= 0; 
-        receive_done <= 1'b0;
+always @(posedge i_clk,posedge i_reset)begin
+
+    if (i_reset)begin
+        rx_buffer_data <= 0;
+        bit_to_send <= 1'b0;
+        rx_buffer_empty <= 1'b1;
+        sent_bits_counter <= 0;    
     end
-
+    
+    else if(i_rx_buffer_start) begin
+        rx_buffer_empty <= 1'b0;
+        rx_buffer_data <= i_pipeline_info;
+        bit_to_send <= i_pipeline_info[0]; 
+        sent_bits_counter <= 6'b000001;              
+    end
+    
     else begin
-        receive_done <= 1'b0;
-              
-        if(i_tx_done)begin
-        
-            if(received_bits_counter == INSTRUCT_MEM_WIDTH-1)begin
-                instruct_or_command[received_bits_counter] <= i_tx_data;
-                received_bits_counter <= 0;
-                receive_done <= 1'b1;
+        if(i_rx_done)begin
+            if(sent_bits_counter == INSTRUCT_MEM_WIDTH) begin
+                rx_buffer_data <= 0;
+                rx_buffer_empty <= 1'b1;
+                sent_bits_counter <= 6'b000000;  
             end
             
             else begin
-                instruct_or_command[received_bits_counter] <= i_tx_data;
-                received_bits_counter <= received_bits_counter + 1;
+                bit_to_send <= rx_buffer_data[sent_bits_counter]; 
+                sent_bits_counter <= sent_bits_counter + 1; 
             end
         end
-    end
+    end  
 end
 
-assign o_receive_done = receive_done;
-assign o_instruct_or_command = instruct_or_command;
+assign o_rx_buffer_empty = rx_buffer_empty;
+assign o_rx_data = bit_to_send;
 
 endmodule

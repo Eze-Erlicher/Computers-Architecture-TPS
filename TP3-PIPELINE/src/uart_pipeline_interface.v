@@ -18,8 +18,8 @@ input wire i_reset,
 input wire [REG_BANK_WIDTH-1:0]i_register_value,
 input wire [DATA_MEM_WIDTH-1:0]i_memory_value,
 input wire [INSTRUCT_MEM_WIDTH-1:0]i_instruct_or_command,
-input wire i_receive_done,
-input wire i_tx_buffer_empty,
+input wire i_tx_buffer_done, 
+input wire i_rx_buffer_empty,
 input wire i_program_finished,
 input wire [IF_ID_SIZE-1:0]i_IF_ID_content,
 input wire [ID_EX_SIZE-1:0]i_ID_EX_content,
@@ -32,7 +32,7 @@ output wire [DATA_MEM_ADDR_BITS-1:0]o_memory_address,
 output wire [INSTRUCT_MEM_WIDTH-1:0]o_instruct_to_write,
 output wire [INSTRUCT_MEM_ADDR_BITS-1:0]o_instruct_to_write_addr,
 output wire [INSTRUCT_MEM_WIDTH-1:0]o_pipeline_info,
-output wire o_tx_start,
+output wire o_rx_start,
 output wire [1:0]o_start_pipeline
 );
 
@@ -66,7 +66,7 @@ reg [ID_EX_SIZE-1:0] latches_info_array [3:0];
 reg [7:0] latch_bits_sent;
 reg [31:0] current_latch_size;
 reg [INSTRUCT_MEM_WIDTH-1:0] pipeline_info;
-reg tx_start;
+reg rx_start;
 reg [1:0]start_pipeline_flag;
 
 always @(posedge i_clk,posedge i_reset)begin
@@ -79,16 +79,16 @@ always @(posedge i_clk,posedge i_reset)begin
         latches_sent_counter <= 0;
         latch_bits_sent <= 0;
         pipeline_info <= 0;
-        tx_start <= 1'b0;
+        rx_start <= 1'b0;
         start_pipeline_flag <= 2'b0;
     end
     
     else begin
-        tx_start <= 1'b0;
+        rx_start <= 1'b0;
         
         case(state)
             WAIT_FOR_COMMAND:begin
-                if(i_receive_done == 1'b1)begin
+                if(i_tx_buffer_done == 1'b1)begin
                     instructions[0] <= i_instruct_or_command;
                     state <= INTERPRET_COMMAND;
                 end
@@ -122,7 +122,7 @@ always @(posedge i_clk,posedge i_reset)begin
             end
             
             RECEIVE_INSTRUCTS: begin
-                if(i_receive_done)begin
+                if(i_tx_buffer_done)begin
                     instructions[inst_counter] <= i_instruct_or_command;
                     
                     if(i_instruct_or_command == instructs_eof )begin
@@ -157,9 +157,9 @@ always @(posedge i_clk,posedge i_reset)begin
                 end
                 
                 else begin
-                    if (i_tx_buffer_empty)begin
+                    if (i_rx_buffer_empty)begin
                         pipeline_info <= i_register_value;
-                        tx_start <= 1'b1;
+                        rx_start <= 1'b1;
                         register_address <= register_address+1;
                     end
                 end   
@@ -172,9 +172,9 @@ always @(posedge i_clk,posedge i_reset)begin
                 end
                 
                 else begin
-                    if (i_tx_buffer_empty)begin
+                    if (i_rx_buffer_empty)begin
                         pipeline_info <= i_memory_value;
-                        tx_start <= 1'b1;
+                        rx_start <= 1'b1;
                         memory_address <= memory_address+1;
                     end
                 end
@@ -194,9 +194,9 @@ always @(posedge i_clk,posedge i_reset)begin
                     end
                 
                     else begin
-                        if(i_tx_buffer_empty)begin
+                        if(i_rx_buffer_empty)begin
                             pipeline_info <= latches_info_array[latches_sent_counter][latch_bits_sent +: 32];
-                            tx_start <= 1'b1;
+                            rx_start <= 1'b1;
                             latch_bits_sent <= latch_bits_sent + 32;
                         end  
                     end 
@@ -209,7 +209,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 if (i_program_finished)begin
                     start_pipeline_flag <= 2'b00;
                     pipeline_info <= 32'hffffffff;
-                    tx_start <= 1'b1;
+                    rx_start <= 1'b1;
                     state <= WAIT_FOR_COMMAND;
                 end
             end
@@ -220,7 +220,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 if (i_program_finished)begin
                     start_pipeline_flag <= 2'b00;
                     pipeline_info <= 32'hffffffff;
-                    tx_start <= 1'b1;
+                    rx_start <= 1'b1;
                     state <= WAIT_FOR_COMMAND;
                 end
             end
@@ -246,7 +246,7 @@ assign o_instruct_to_write_addr = inst_counter;
 assign o_register_address = register_address[REG_BANK_ADDR_BITS-1:0];
 assign o_memory_address = memory_address[DATA_MEM_ADDR_BITS-1:0];
 assign o_pipeline_info = pipeline_info;
-assign o_tx_start = tx_start;
+assign o_rx_start = rx_start;
 assign o_start_pipeline = start_pipeline_flag;
 
 endmodule
