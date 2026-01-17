@@ -116,6 +116,10 @@ always @(posedge i_clk,posedge i_reset)begin
                     state <= RUN_CONTINUOS;
                 end
                 
+                else if (instructions[0] == start_stepwise)begin
+                    state <= RUN_STEPWISE;
+                end
+                
                 else begin
                     state <= WAIT_FOR_COMMAND;
                 end
@@ -125,7 +129,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 if(i_tx_buffer_done)begin
                     instructions[inst_counter] <= i_instruct_or_command;
                     
-                    if(i_instruct_or_command == instructs_eof )begin
+                    if(i_instruct_or_command == instructs_eof)begin
                         inst_counter <= {INSTRUCT_MEM_ADDR_BITS{1'b0}};
                         state <= PROGRAM_INSTRUCT_MEM;
                     end
@@ -250,12 +254,4 @@ assign o_rx_start = rx_start;
 assign o_start_pipeline = start_pipeline_flag;
 
 endmodule
-
-/*
-i've coded a verilog module which serves as an interface between two UART buffers 
-(one for the receptor and another for the trasnsmitter) and a processor pipeline. 
-First,i'm gonna provide the code for the interface, then the code for the 2 buffers. 
-Tell me if there any logic errors for every individual module and if the interaction between 
-them will work 
-*/
 
