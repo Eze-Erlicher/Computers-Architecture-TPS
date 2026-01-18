@@ -1,15 +1,15 @@
 module uart_pipeline_interface #(
 
 parameter REG_BANK_WIDTH = 32,
-parameter REG_BANK_ADDR_BITS = 5,// Tamaño por defecto del banco de registros = 32
+parameter REG_BANK_ADDR_BITS = 5,
 parameter DATA_MEM_WIDTH = 32,
-parameter DATA_MEM_ADDR_BITS = 8 ,// Tamaño por defecto de la memoria de datos = 256
+parameter DATA_MEM_ADDR_BITS = 8 ,
 parameter INSTRUCT_MEM_WIDTH = 32,
-parameter INSTRUCT_MEM_ADDR_BITS = 6, // Tamaño por defecto de la memoria de instrucciones = 64
-parameter IF_ID_SIZE = 42, // 8+32+2 
-parameter ID_EX_SIZE = 148, // 3+8+32+32+64+4+5
-parameter EX_MEM_SIZE = 80, // 3+8+32+32+5
-parameter MEM_WB_SIZE = 46 // 1+32+8+5
+parameter INSTRUCT_MEM_ADDR_BITS = 6, 
+parameter IF_ID_SIZE = 42, 
+parameter ID_EX_SIZE = 148, 
+parameter EX_MEM_SIZE = 80, 
+parameter MEM_WB_SIZE = 46
 )
 (
 //Inputs
@@ -32,7 +32,7 @@ output wire [DATA_MEM_ADDR_BITS-1:0]o_memory_address,
 output wire [INSTRUCT_MEM_WIDTH-1:0]o_instruct_to_write,
 output wire [INSTRUCT_MEM_ADDR_BITS-1:0]o_instruct_to_write_addr,
 output wire [INSTRUCT_MEM_WIDTH-1:0]o_pipeline_info,
-output wire o_rx_start,
+output wire o_rx_buffer_start,
 output wire [1:0]o_start_pipeline
 );
 
@@ -66,7 +66,7 @@ reg [ID_EX_SIZE-1:0] latches_info_array [3:0];
 reg [7:0] latch_bits_sent;
 reg [31:0] current_latch_size;
 reg [INSTRUCT_MEM_WIDTH-1:0] pipeline_info;
-reg rx_start;
+reg rx_buffer_start;
 reg [1:0]start_pipeline_flag;
 
 always @(posedge i_clk,posedge i_reset)begin
@@ -79,12 +79,12 @@ always @(posedge i_clk,posedge i_reset)begin
         latches_sent_counter <= 0;
         latch_bits_sent <= 0;
         pipeline_info <= 0;
-        rx_start <= 1'b0;
+        rx_buffer_start <= 1'b0;
         start_pipeline_flag <= 2'b0;
     end
     
     else begin
-        rx_start <= 1'b0;
+        rx_buffer_start <= 1'b0;
         
         case(state)
             WAIT_FOR_COMMAND:begin
@@ -163,7 +163,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 else begin
                     if (i_rx_buffer_empty)begin
                         pipeline_info <= i_register_value;
-                        rx_start <= 1'b1;
+                        rx_buffer_start <= 1'b1;
                         register_address <= register_address+1;
                     end
                 end   
@@ -178,7 +178,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 else begin
                     if (i_rx_buffer_empty)begin
                         pipeline_info <= i_memory_value;
-                        rx_start <= 1'b1;
+                        rx_buffer_start <= 1'b1;
                         memory_address <= memory_address+1;
                     end
                 end
@@ -200,7 +200,7 @@ always @(posedge i_clk,posedge i_reset)begin
                     else begin
                         if(i_rx_buffer_empty)begin
                             pipeline_info <= latches_info_array[latches_sent_counter][latch_bits_sent +: 32];
-                            rx_start <= 1'b1;
+                            rx_buffer_start <= 1'b1;
                             latch_bits_sent <= latch_bits_sent + 32;
                         end  
                     end 
@@ -213,7 +213,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 if (i_program_finished)begin
                     start_pipeline_flag <= 2'b00;
                     pipeline_info <= 32'hffffffff;
-                    rx_start <= 1'b1;
+                    rx_buffer_start <= 1'b1;
                     state <= WAIT_FOR_COMMAND;
                 end
             end
@@ -224,7 +224,7 @@ always @(posedge i_clk,posedge i_reset)begin
                 if (i_program_finished)begin
                     start_pipeline_flag <= 2'b00;
                     pipeline_info <= 32'hffffffff;
-                    rx_start <= 1'b1;
+                    rx_buffer_start <= 1'b1;
                     state <= WAIT_FOR_COMMAND;
                 end
             end
@@ -250,7 +250,7 @@ assign o_instruct_to_write_addr = inst_counter;
 assign o_register_address = register_address[REG_BANK_ADDR_BITS-1:0];
 assign o_memory_address = memory_address[DATA_MEM_ADDR_BITS-1:0];
 assign o_pipeline_info = pipeline_info;
-assign o_rx_start = rx_start;
+assign o_rx_buffer_start = rx_buffer_start;
 assign o_start_pipeline = start_pipeline_flag;
 
 endmodule
