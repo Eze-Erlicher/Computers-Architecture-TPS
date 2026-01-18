@@ -37,7 +37,7 @@ output wire O_start_pipeline
 
 
 // TX buffer
-wire [DATA_MEM_WIDTH-1:0]instruct_or_command;
+wire [INSTRUCT_MEM_WIDTH-1:0]instruct_or_command;
 wire tx_buffer_done;
 
 //RX buffer
@@ -112,7 +112,7 @@ rx_buffer #(
     
     //outputs
     .o_rx_buffer_empty(rx_buffer_empty),
-    .o_rx_data(I_rx_data)
+    .o_rx_data(O_rx_data)
 );
 
 
