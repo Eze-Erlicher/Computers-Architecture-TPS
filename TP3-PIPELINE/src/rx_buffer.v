@@ -42,7 +42,8 @@ always @(posedge i_clk,posedge i_reset)begin
             if(sent_bits_counter == INSTRUCT_MEM_WIDTH) begin
                 rx_buffer_data <= 0;
                 rx_buffer_empty <= 1'b1;
-                sent_bits_counter <= 6'b000000;  
+                sent_bits_counter <= 6'b000000;
+                bit_to_send <= 1'b0;  
             end
             
             else begin

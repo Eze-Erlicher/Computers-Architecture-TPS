@@ -29,7 +29,6 @@ always @(posedge i_clk, posedge i_reset)begin
         tx_buffer_done <= 1'b0;
               
         if(i_tx_done)begin
-        
             if(received_bits_counter == INSTRUCT_MEM_WIDTH-1)begin
                 instruct_or_command[received_bits_counter] <= i_tx_data;
                 received_bits_counter <= 0;
