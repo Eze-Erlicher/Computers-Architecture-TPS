@@ -1,15 +1,17 @@
+//Pending: modify SEND DATA MEM state to only send those values != 0
+
 module uart_pipeline_interface #(
 
 parameter REG_BANK_WIDTH = 32,
-parameter REG_BANK_ADDR_BITS = 5,
+parameter REG_BANK_ADDR_BITS = 5, // Tamaño por defecto del banco de registros = 32
 parameter DATA_MEM_WIDTH = 32,
-parameter DATA_MEM_ADDR_BITS = 8 ,
+parameter DATA_MEM_ADDR_BITS = 8 ,// Tamaño por defecto de la memoria de datos = 256
 parameter INSTRUCT_MEM_WIDTH = 32,
-parameter INSTRUCT_MEM_ADDR_BITS = 6, 
-parameter IF_ID_SIZE = 42, 
-parameter ID_EX_SIZE = 148, 
-parameter EX_MEM_SIZE = 80, 
-parameter MEM_WB_SIZE = 46
+parameter INSTRUCT_MEM_ADDR_BITS = 6, // Tamaño por defecto de la memoria de instrucciones = 64
+parameter IF_ID_SIZE = 40, // 6+32+2
+parameter ID_EX_SIZE = 147, // 3+6+32+32+64+4+5+1
+parameter EX_MEM_SIZE = 79, // 3+6+32+32+5+1
+parameter MEM_WB_SIZE = 71 // 1+32+32+5+1
 )
 (
 //Inputs
@@ -61,6 +63,7 @@ reg [INSTRUCT_MEM_ADDR_BITS-1:0] inst_counter;
 reg [INSTRUCT_MEM_WIDTH-1:0] instruct_to_write;
 reg [REG_BANK_ADDR_BITS:0] register_address;
 reg [DATA_MEM_ADDR_BITS:0] memory_address;
+reg send_mem_index_or_value; // 0: index, 1:value
 reg [2:0] latches_sent_counter;
 reg [ID_EX_SIZE-1:0] latches_info_array [3:0];
 reg [7:0] latch_bits_sent;
@@ -158,6 +161,7 @@ always @(posedge i_clk,posedge i_reset)begin
                     register_address <= {REG_BANK_ADDR_BITS{1'b0}};
                     state <= SEND_DATA_MEM;
                     memory_address <= {DATA_MEM_ADDR_BITS{1'b0}};
+                    send_mem_index_or_value <= 1'b0;
                 end
                 
                 else begin
@@ -173,13 +177,24 @@ always @(posedge i_clk,posedge i_reset)begin
                 if (memory_address == (1 << DATA_MEM_ADDR_BITS))begin
                     state <= SEND_LATCHES;
                     memory_address <= {DATA_MEM_ADDR_BITS{1'b0}};
+                    send_mem_index_or_value <= 1'b0;
                 end
                 
                 else begin
                     if (i_rx_buffer_empty)begin
-                        pipeline_info <= i_memory_value;
+                        
+                        if(send_mem_index_or_value == 0)begin
+                            pipeline_info <= memory_address;
+                            send_mem_index_or_value <= 1'b1;
+                        end
+                        
+                        else begin
+                            pipeline_info <= i_memory_value;
+                            send_mem_index_or_value <= 1'b0;
+                            memory_address <= memory_address+1;
+                        end
+                        
                         rx_buffer_start <= 1'b1;
-                        memory_address <= memory_address+1;
                     end
                 end
             end
