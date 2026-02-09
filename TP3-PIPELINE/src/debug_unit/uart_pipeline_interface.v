@@ -183,7 +183,11 @@ always @(posedge i_clk,posedge i_reset)begin
                 else begin
                     if (i_rx_buffer_empty)begin
                         
-                        if(send_mem_index_or_value == 0)begin
+                        if(i_memory_value == 0) begin
+                            memory_address <= memory_address+1;
+                        end
+                                              
+                        else if(send_mem_index_or_value == 0)begin
                             pipeline_info <= memory_address;
                             send_mem_index_or_value <= 1'b1;
                         end
