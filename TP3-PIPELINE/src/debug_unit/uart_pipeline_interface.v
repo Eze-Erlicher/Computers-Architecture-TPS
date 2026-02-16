@@ -8,10 +8,12 @@ parameter DATA_MEM_WIDTH = 32,
 parameter DATA_MEM_ADDR_BITS = 8 ,// Tamaño por defecto de la memoria de datos = 256
 parameter INSTRUCT_MEM_WIDTH = 32,
 parameter INSTRUCT_MEM_ADDR_BITS = 6, // Tamaño por defecto de la memoria de instrucciones = 64
-parameter IF_ID_SIZE = 40, // 6+32+2
-parameter ID_EX_SIZE = 147, // 3+6+32+32+64+4+5+1
-parameter EX_MEM_SIZE = 79, // 3+6+32+32+5+1
-parameter MEM_WB_SIZE = 71 // 1+32+32+5+1
+parameter IF_ID_SIZE = 40, // 6+32+2+8
+parameter ID_EX_SIZE = 152, // 9+6+32+32+64+4+5
+parameter EX_MEM_SIZE = 81, // 5+32+32+6+1+5
+parameter MEM_WB_SIZE = 72 // 2+32+32+5+1
+
+
 )
 (
 //Inputs
@@ -35,7 +37,8 @@ output wire [INSTRUCT_MEM_WIDTH-1:0]o_instruct_to_write,
 output wire [INSTRUCT_MEM_ADDR_BITS-1:0]o_instruct_to_write_addr,
 output wire [INSTRUCT_MEM_WIDTH-1:0]o_pipeline_info,
 output wire o_rx_buffer_start,
-output wire [1:0]o_start_pipeline
+output wire [1:0]o_pipeline_exec_mode,
+output wire o_execute_instruct
 );
 
 //States (one hot encoding)
@@ -51,7 +54,8 @@ localparam RUN_STEPWISE = 9'b100000000;
 
 //Commands
 localparam [INSTRUCT_MEM_WIDTH-1:0] start_continuos = "cont";
-localparam [INSTRUCT_MEM_WIDTH-1:0] start_stepwise ="step";
+localparam [INSTRUCT_MEM_WIDTH-1:0] start_stepwise = "step";
+localparam [INSTRUCT_MEM_WIDTH-1:0] execute_an_instruct = "exin";
 localparam [INSTRUCT_MEM_WIDTH-1:0] receive_instructions = "rins";
 localparam [INSTRUCT_MEM_WIDTH-1:0] fetch_pipeline_data = "fpip";
 localparam [INSTRUCT_MEM_WIDTH-1:0] instructs_eof = "ieof";
@@ -70,7 +74,8 @@ reg [7:0] latch_bits_sent;
 reg [31:0] current_latch_size;
 reg [INSTRUCT_MEM_WIDTH-1:0] pipeline_info;
 reg rx_buffer_start;
-reg [1:0]start_pipeline_flag;
+reg [1:0] pipeline_exec_mode;
+reg execute_instruct;
 
 always @(posedge i_clk,posedge i_reset)begin
     if (i_reset) begin
@@ -83,7 +88,7 @@ always @(posedge i_clk,posedge i_reset)begin
         latch_bits_sent <= 0;
         pipeline_info <= 0;
         rx_buffer_start <= 1'b0;
-        start_pipeline_flag <= 2'b0;
+        pipeline_exec_mode <= 2'b0;
     end
     
     else begin
@@ -227,10 +232,10 @@ always @(posedge i_clk,posedge i_reset)begin
             end
            
             RUN_CONTINUOS:begin
-                start_pipeline_flag <= 2'b01;
+                pipeline_exec_mode <= 2'b01;
                
                 if (i_program_finished)begin
-                    start_pipeline_flag <= 2'b00;
+                    pipeline_exec_mode <= 2'b00;
                     pipeline_info <= 32'hffffffff;
                     rx_buffer_start <= 1'b1;
                     state <= WAIT_FOR_COMMAND;
@@ -238,12 +243,18 @@ always @(posedge i_clk,posedge i_reset)begin
             end
             
             RUN_STEPWISE:begin
-                start_pipeline_flag <= 2'b11;
+                pipeline_exec_mode <= 2'b11;
+                execute_instruct <= 1'b0;
                 
+                if(i_tx_buffer_done == 1'b1 && i_instruct_or_command == execute_an_instruct )begin
+                     execute_instruct <= 1'b1;                     
+                end
+                       
                 if (i_program_finished)begin
-                    start_pipeline_flag <= 2'b00;
+                    pipeline_exec_mode <= 2'b00;
                     pipeline_info <= 32'hffffffff;
                     rx_buffer_start <= 1'b1;
+                    execute_instruct <= 1'b0; 
                     state <= WAIT_FOR_COMMAND;
                 end
             end
@@ -270,7 +281,8 @@ assign o_register_address = register_address[REG_BANK_ADDR_BITS-1:0];
 assign o_memory_address = memory_address[DATA_MEM_ADDR_BITS-1:0];
 assign o_pipeline_info = pipeline_info;
 assign o_rx_buffer_start = rx_buffer_start;
-assign o_start_pipeline = start_pipeline_flag;
+assign o_pipeline_exec_mode = pipeline_exec_mode;
+assign o_execute_instruct = execute_instruct;
 
 endmodule
 
